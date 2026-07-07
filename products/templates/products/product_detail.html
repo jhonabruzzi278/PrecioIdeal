@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name|truncatechars:40 }} — Precio Ideal{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'product_list' %}" class="text-decoration-none">&larr; Volver a productos</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                {% if product.image_url %}
+                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mb-3" style="max-height:320px; object-fit:contain;">
+                {% endif %}
+                <h1 class="h4">{{ product.name }}</h1>
+                <p class="text-muted mb-1">{{ product.brand }}</p>
+                <p class="mb-3">Tienda: {{ product.seller|default:product.retail|default:"—" }}</p>
+                <div class="display-6 text-primary mb-1">{{ product.formatted_current_price }}</div>
+                {% if product.has_discount %}
+                <div class="mb-2">
+                    <span class="badge text-bg-danger fs-6">{{ product.formatted_discount_percent }}</span>
+                    <span class="text-muted text-decoration-line-through ms-2">{{ product.formatted_reference_price }}</span>
+                </div>
+                <div class="text-success mb-3">Ahorras {{ product.formatted_discount_amount }}</div>
+                {% else %}
+                <div class="mb-3"></div>
+                {% endif %}
+                {% if product.is_best_price %}
+                <div class="mb-2"><span class="badge text-bg-success">Mejor precio en Knasta</span></div>
+                {% endif %}
+                {% if product.rating %}
+                <div class="mb-3">{{ product.rating }} ★ — {{ product.reviews }} reseñas</div>
+                {% endif %}
+                <a href="{{ product.product_url }}" class="btn btn-outline-primary" target="_blank" rel="noopener">
+                    Ver en tienda
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card stat-card mb-4">
+            <div class="card-header bg-white"><strong>Precios y descuento</strong></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="text-muted small">Precio actual (mejor)</div>
+                        <div class="fs-4 fw-bold text-primary">{{ product.formatted_current_price }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted small">Precio referencia</div>
+                        <div class="fs-5 {% if product.has_discount %}text-muted text-decoration-line-through{% endif %}">
+                            {{ product.formatted_reference_price }}
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted small">Precio internet</div>
+                        <div class="fs-5">{{ product.formatted_internet_price }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted small">Precio tarjeta</div>
+                        <div class="fs-5">{{ product.formatted_card_price }}</div>
+                    </div>
+                    {% if product.best_variation_price %}
+                    <div class="col-sm-6">
+                        <div class="text-muted small">Mejor variación histórica</div>
+                        <div class="fs-5">{{ product.formatted_best_variation_price }}</div>
+                    </div>
+                    {% endif %}
+                    {% if product.has_discount %}
+                    <div class="col-sm-6">
+                        <div class="text-muted small">Descuento</div>
+                        <span class="badge text-bg-danger fs-6">{{ product.formatted_discount_percent }}</span>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted small">Ahorro</div>
+                        <div class="fs-5 fw-bold text-success">{{ product.formatted_discount_amount }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card stat-card mb-4">
+            <div class="card-header bg-white"><strong>Información</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">KID</dt>
+                    <dd class="col-sm-8"><code>{{ product.kid }}</code></dd>
+                    <dt class="col-sm-4">Product ID</dt>
+                    <dd class="col-sm-8">{{ product.product_id }}</dd>
+                    <dt class="col-sm-4">Retail</dt>
+                    <dd class="col-sm-8">{{ product.retail|default:"—" }}</dd>
+                    <dt class="col-sm-4">Tienda</dt>
+                    <dd class="col-sm-8">{{ product.seller|default:"—" }}</dd>
+                    <dt class="col-sm-4">Mejor precio Knasta</dt>
+                    <dd class="col-sm-8">{% if product.is_best_price %}Sí{% else %}No{% endif %}</dd>
+                    <dt class="col-sm-4">Fuente</dt>
+                    <dd class="col-sm-8">{{ product.source }}</dd>
+                    <dt class="col-sm-4">Creado</dt>
+                    <dd class="col-sm-8">{{ product.created_at|date:"d/m/Y H:i" }}</dd>
+                    <dt class="col-sm-4">Actualizado</dt>
+                    <dd class="col-sm-8">{{ product.updated_at|date:"d/m/Y H:i" }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card stat-card">
+            <div class="card-header bg-white"><strong>Historial de precios</strong></div>
+            <div class="card-body p-0">
+                {% if history %}
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Precio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in history %}
+                            <tr>
+                                <td>{{ entry.created_at|date:"d/m/Y H:i" }}</td>
+                                <td>{{ entry.formatted_price }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-3 text-muted">Sin historial de precios registrado.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

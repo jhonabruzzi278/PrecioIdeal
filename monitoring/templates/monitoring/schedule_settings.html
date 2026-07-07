@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Programación — Precio Ideal{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'report_list' %}" class="text-decoration-none">&larr; Volver a informes</a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card stat-card">
+            <div class="card-header bg-white">
+                <strong>Actualización automática</strong>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Cuando está activa, el servidor ejecutará <code>update_prices</code> cada X horas
+                    mientras <strong>runserver</strong> esté en marcha. Cada ejecución genera un informe consultable.
+                </p>
+
+                {% if schedule.last_run %}
+                <p class="small text-muted">Última ejecución programada: {{ schedule.last_run|date:"d/m/Y H:i" }}</p>
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <div class="mb-3 form-check">
+                        {{ form.enabled }}
+                        <label class="form-check-label" for="{{ form.enabled.id_for_label }}">
+                            {{ form.enabled.label }}
+                        </label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.interval_hours.id_for_label }}" class="form-label">
+                            {{ form.interval_hours.label }}
+                        </label>
+                        {{ form.interval_hours }}
+                        <div class="form-text">Entre 1 y 168 horas (1 semana).</div>
+                        {% if form.interval_hours.errors %}
+                        <div class="text-danger small">{{ form.interval_hours.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar programación</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

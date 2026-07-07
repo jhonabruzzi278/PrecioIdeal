@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Monitores — Precio Ideal{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Monitores</h1>
+    <div class="d-flex gap-2">
+        {% include "monitoring/partials/update_prices_button.html" %}
+        <a href="{% url 'monitor_create' %}" class="btn btn-primary">Nuevo monitor</a>
+    </div>
+</div>
+
+<div class="card stat-card">
+    <div class="card-body p-0">
+        {% if monitors %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Categoría Knasta</th>
+                        <th>Activo</th>
+                        <th>Última ejecución</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for monitor in monitors %}
+                    <tr>
+                        <td>{{ monitor.name }}</td>
+                        <td>
+                            <a href="{{ monitor.results_url }}" target="_blank" rel="noopener" class="text-truncate d-inline-block" style="max-width:360px">
+                                {{ monitor.category_name|default:monitor.category_slug }}
+                            </a>
+                            <div class="small text-muted">{{ monitor.category_slug }}</div>
+                        </td>
+                        <td>
+                            {% if monitor.active %}
+                            <span class="badge text-bg-success">Sí</span>
+                            {% else %}
+                            <span class="badge text-bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if monitor.last_execution %}
+                            {{ monitor.last_execution|date:"d/m/Y H:i" }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-muted">
+            No hay monitores configurados. <a href="{% url 'monitor_create' %}">Crea el primero</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

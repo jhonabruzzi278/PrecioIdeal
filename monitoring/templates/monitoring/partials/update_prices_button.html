@@ -1,0 +1,5 @@
+<form method="post" action="{% url 'update_prices' %}" class="d-inline">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.path }}">
+    <button type="submit" class="btn btn-success">Actualizar precios</button>
+</form>

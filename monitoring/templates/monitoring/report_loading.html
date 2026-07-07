@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Actualizando precios — Precio Ideal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .loading-card {
+        max-width: 640px;
+        margin: 4rem auto;
+    }
+    .spinner-wrap {
+        width: 72px;
+        height: 72px;
+    }
+    .step-text {
+        min-height: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card stat-card loading-card">
+    <div class="card-body text-center p-5">
+        <div class="spinner-wrap mx-auto mb-4">
+            <div class="spinner-border text-primary w-100 h-100" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+        <h1 class="h4 mb-2">Actualizando precios</h1>
+        <p class="text-muted mb-4">Informe #{{ report.pk }} — esto puede tardar unos segundos según la cantidad de páginas.</p>
+
+        <div class="progress mb-3" style="height: 12px;">
+            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
+                 role="progressbar" style="width: 0%"></div>
+        </div>
+        <p id="progress-label" class="small text-muted mb-3">0%</p>
+        <p id="step-text" class="step-text fw-medium text-primary">{{ report.current_step|default:"Iniciando..." }}</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const statusUrl = "{% url 'report_status' report.pk %}";
+    const progressBar = document.getElementById("progress-bar");
+    const progressLabel = document.getElementById("progress-label");
+    const stepText = document.getElementById("step-text");
+
+    function poll() {
+        fetch(statusUrl)
+            .then(response => response.json())
+            .then(data => {
+                progressBar.style.width = data.progress_percent + "%";
+                progressLabel.textContent = data.progress_percent + "%";
+                stepText.textContent = data.current_step || "Procesando...";
+
+                if (data.is_finished) {
+                    window.location.href = data.redirect_url;
+                    return;
+                }
+                setTimeout(poll, 1500);
+            })
+            .catch(() => setTimeout(poll, 2500));
+    }
+
+    poll();
+})();
+</script>
+{% endblock %}

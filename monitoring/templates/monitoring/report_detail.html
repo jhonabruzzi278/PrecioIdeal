@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Informe #{{ report.pk }} — Precio Ideal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-badge { font-size: .85rem; }
+    .price-down { color: #198754; }
+    .price-up { color: #dc3545; }
+    .chart-box { height: 320px; position: relative; }
+    .summary-icon {
+        width: 48px; height: 48px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem; font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+    <div>
+        <a href="{% url 'report_list' %}" class="text-decoration-none small">&larr; Todos los informes</a>
+        <h1 class="h3 mb-1 mt-1">Informe #{{ report.pk }}</h1>
+        <div class="text-muted">
+            {{ report.started_at|date:"d/m/Y H:i" }}
+            {% if report.finished_at %} — {{ report.duration_seconds }}s{% endif %}
+            · {{ report.get_trigger_display }}
+        </div>
+    </div>
+    <span class="badge report-badge text-bg-{% if report.status == 'completed' %}success{% elif report.status == 'partial' %}warning{% elif report.status == 'failed' %}danger{% else %}secondary{% endif %} fs-6">
+        {{ report.get_status_display }}
+    </span>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="summary-icon bg-primary bg-opacity-10 text-primary">{{ report.products_created }}</div>
+                <div>
+                    <div class="text-muted small">Nuevos</div>
+                    <div class="fw-bold">Productos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="summary-icon bg-warning bg-opacity-10 text-warning">{{ price_changes_count }}</div>
+                <div>
+                    <div class="text-muted small">Cambios</div>
+                    <div class="fw-bold">De precio</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="summary-icon bg-success bg-opacity-10 text-success">{{ decreases }}</div>
+                <div>
+                    <div class="text-muted small">Bajaron</div>
+                    <div class="fw-bold">Precio</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="summary-icon bg-danger bg-opacity-10 text-danger">{{ increases }}</div>
+                <div>
+                    <div class="text-muted small">Subieron</div>
+                    <div class="fw-bold">Precio</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if report.error_log %}
+<div class="alert alert-warning">{{ report.error_log|linebreaksbr }}</div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-5">
+        <div class="card stat-card h-100">
+            <div class="card-header bg-white"><strong>Resumen de la ejecución</strong></div>
+            <div class="card-body">
+                <div class="chart-box">
+                    <canvas id="summaryChart"></canvas>
+                </div>
+                <ul class="list-unstyled small text-muted mt-3 mb-0">
+                    <li>{{ report.monitors_processed }} monitor/es procesado/s</li>
+                    <li>{{ report.products_scraped }} productos scrapeados</li>
+                    <li>{{ report.products_updated }} productos actualizados en total</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card stat-card h-100">
+            <div class="card-header bg-white"><strong>Cambios de precio (top {{ price_changes|length|default:0 }})</strong></div>
+            <div class="card-body">
+                {% if price_changes %}
+                <div class="chart-box">
+                    <canvas id="priceChart"></canvas>
+                </div>
+                {% else %}
+                <div class="text-muted py-5 text-center">Sin cambios de precio en esta ejecución.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if new_products %}
+<div class="card stat-card mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Productos nuevos ({{ new_products|length }})</strong>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:72px"></th>
+                        <th>Producto</th>
+                        <th>Marca</th>
+                        <th>Tienda</th>
+                        <th>Monitor</th>
+                        <th>Precio inicial</th>
+                        <th>Descuento</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in new_products %}
+                    <tr>
+                        <td>
+                            {% if entry.image_url %}
+                            <img src="{{ entry.image_url }}" alt="" class="product-thumb">
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if entry.product %}
+                            <a href="{% url 'product_detail' entry.product.pk %}">{{ entry.product_name|truncatechars:60 }}</a>
+                            {% else %}
+                            {{ entry.product_name|truncatechars:60 }}
+                            {% endif %}
+                        </td>
+                        <td>{{ entry.brand|default:"—" }}</td>
+                        <td>{{ entry.retail|default:"—" }}</td>
+                        <td>{{ entry.monitor_name|default:"—" }}</td>
+                        <td><strong>{{ entry.formatted_new_price }}</strong></td>
+                        <td>
+                            {% if entry.has_discount %}
+                            <span class="badge text-bg-danger">{{ entry.formatted_discount_percent }}</span>
+                            <div class="small text-success">{{ entry.formatted_discount_amount }}</div>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if price_changes %}
+<div class="card stat-card">
+    <div class="card-header bg-white"><strong>Detalle de cambios de precio</strong></div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:72px"></th>
+                        <th>Producto</th>
+                        <th>Precio anterior</th>
+                        <th>Precio nuevo</th>
+                        <th>Descuento</th>
+                        <th>Variación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in price_changes %}
+                    <tr>
+                        <td>
+                            {% if entry.image_url %}
+                            <img src="{{ entry.image_url }}" alt="" class="product-thumb">
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if entry.product %}
+                            <a href="{% url 'product_detail' entry.product.pk %}">{{ entry.product_name|truncatechars:55 }}</a>
+                            {% else %}
+                            {{ entry.product_name|truncatechars:55 }}
+                            {% endif %}
+                        </td>
+                        <td>{{ entry.formatted_old_price }}</td>
+                        <td><strong>{{ entry.formatted_new_price }}</strong></td>
+                        <td>
+                            {% if entry.has_discount %}
+                            <span class="badge text-bg-danger">{{ entry.formatted_discount_percent }}</span>
+                            <div class="small text-success">{{ entry.formatted_discount_amount }}</div>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if entry.price_diff < 0 %}
+                            <span class="price-down fw-bold">{{ entry.formatted_diff }}</span>
+                            {% elif entry.price_diff > 0 %}
+                            <span class="price-up fw-bold">{{ entry.formatted_diff }}</span>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+const summaryData = {{ summary_chart_data }};
+const chartLabels = {{ chart_labels|safe }};
+const oldPrices = {{ chart_old_prices|safe }};
+const newPrices = {{ chart_new_prices|safe }};
+
+new Chart(document.getElementById("summaryChart"), {
+    type: "doughnut",
+    data: {
+        labels: ["Nuevos", "Cambios de precio", "Sin cambio de precio"],
+        datasets: [{
+            data: summaryData,
+            backgroundColor: ["#0d6efd", "#ffc107", "#6c757d"],
+            borderWidth: 0,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } }
+    }
+});
+
+if (chartLabels.length && document.getElementById("priceChart")) {
+    new Chart(document.getElementById("priceChart"), {
+        type: "bar",
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    label: "Precio anterior",
+                    data: oldPrices,
+                    backgroundColor: "rgba(108, 117, 125, 0.7)",
+                },
+                {
+                    label: "Precio nuevo",
+                    data: newPrices,
+                    backgroundColor: "rgba(13, 110, 253, 0.8)",
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    ticks: {
+                        callback: value => "$" + value.toLocaleString("es-CL")
+                    }
+                }
+            },
+            plugins: { legend: { position: "bottom" } }
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Precio Ideal{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Dashboard</h1>
+    <div class="d-flex gap-2">
+        {% include "monitoring/partials/update_prices_button.html" %}
+        <a href="{% url 'report_list' %}" class="btn btn-outline-secondary">Informes</a>
+        <form method="post" action="{% url 'clear_data' %}" class="d-inline"
+              onsubmit="return confirm('Se eliminarán todos los productos, historial de precios y monitores. Los usuarios se conservarán. ¿Continuar?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">Vaciar datos</button>
+        </form>
+        <a href="{% url 'monitor_create' %}" class="btn btn-primary">Nuevo monitor</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="text-muted small">Total productos</div>
+                <div class="display-6">{{ total_products }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="text-muted small">Total monitores</div>
+                <div class="display-6">{{ total_monitors }}</div>
+                <div class="small text-muted">{{ active_monitors }} activos</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="text-muted small">Tiendas distintas</div>
+                <div class="display-6">{{ total_retailers }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="text-muted small">Última actualización</div>
+                <div class="fs-4">{{ last_update|date:"d/m/Y H:i" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card stat-card">
+    <div class="card-header bg-white">
+        <strong>Productos recientes</strong>
+    </div>
+    <div class="card-body p-0">
+        {% if recent_products %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Marca</th>
+                        <th>Precio</th>
+                        <th>Actualizado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in recent_products %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'product_detail' product.pk %}">{{ product.name|truncatechars:60 }}</a>
+                        </td>
+                        <td>{{ product.brand|default:"—" }}</td>
+                        <td>{{ product.formatted_current_price }}</td>
+                        <td>{{ product.updated_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-muted">
+            No hay productos aún. <a href="{% url 'monitor_create' %}">Crea un monitor</a> para comenzar.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

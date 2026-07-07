@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo monitor — Precio Ideal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .category-results {
+        max-height: 280px;
+        overflow-y: auto;
+    }
+    .category-result-item {
+        cursor: pointer;
+    }
+    .category-result-item:hover,
+    .category-result-item.active {
+        background-color: #e7f1ff;
+    }
+    .category-selected-box {
+        border: 1px solid #0d6efd;
+        background: #f8fbff;
+        border-radius: .375rem;
+        padding: .75rem 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'monitor_list' %}" class="text-decoration-none">&larr; Volver a monitores</a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card stat-card">
+            <div class="card-header bg-white">
+                <strong>Crear monitor</strong>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Busca una categoría de Knasta por nombre o ruta. Al guardar se descargarán
+                    todos los productos de esa categoría (hasta ~3.200 por tienda).
+                </p>
+                <form method="post" novalidate id="monitor-form">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="category-search" class="form-label">Categoría Knasta</label>
+                        {{ form.category }}
+                        <input
+                            type="search"
+                            id="category-search"
+                            class="form-control"
+                            placeholder="Ej: smartphones, iphone, electrodomésticos, falabella..."
+                            autocomplete="off"
+                        >
+                        <div class="form-text" id="category-hint">
+                            Escribe al menos 2 caracteres para buscar entre las categorías disponibles.
+                        </div>
+                        <div id="category-selected" class="category-selected-box mt-2 d-none">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div>
+                                    <div class="fw-semibold" id="category-selected-name"></div>
+                                    <div class="small text-muted" id="category-selected-path"></div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="category-clear">
+                                    Cambiar
+                                </button>
+                            </div>
+                        </div>
+                        <ul class="list-group category-results mt-2 d-none" id="category-results"></ul>
+                        {% if form.category.errors %}
+                        <div class="text-danger small mt-1">{{ form.category.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }}</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <div class="text-danger small">{{ form.name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        {{ form.active }}
+                        <label for="{{ form.active.id_for_label }}" class="form-check-label">{{ form.active.label }}</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Guardar y extraer productos</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const categories = {{ categories_json|safe }};
+    const searchInput = document.getElementById("category-search");
+    const resultsList = document.getElementById("category-results");
+    const hiddenInput = document.getElementById("id_category");
+    const selectedBox = document.getElementById("category-selected");
+    const selectedName = document.getElementById("category-selected-name");
+    const selectedPath = document.getElementById("category-selected-path");
+    const clearButton = document.getElementById("category-clear");
+    const hint = document.getElementById("category-hint");
+    const nameInput = document.getElementById("id_monitor_name");
+    const maxResults = 20;
+    let activeIndex = -1;
+
+    function normalize(text) {
+        return (text || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function findCategory(value) {
+        return categories.find((item) => item.value === value);
+    }
+
+    function selectCategory(item) {
+        hiddenInput.value = item.value;
+        selectedName.textContent = item.name;
+        selectedPath.textContent = item.path || item.slug;
+        selectedBox.classList.remove("d-none");
+        searchInput.classList.add("d-none");
+        hint.classList.add("d-none");
+        resultsList.classList.add("d-none");
+        resultsList.innerHTML = "";
+        activeIndex = -1;
+
+        if (nameInput && !nameInput.value.trim()) {
+            nameInput.value = item.name;
+        }
+    }
+
+    function clearSelection() {
+        hiddenInput.value = "";
+        selectedBox.classList.add("d-none");
+        searchInput.classList.remove("d-none");
+        hint.classList.remove("d-none");
+        searchInput.value = "";
+        searchInput.focus();
+    }
+
+    function filterCategories(query) {
+        const terms = normalize(query).split(/\s+/).filter(Boolean);
+        if (terms.length === 0) {
+            return [];
+        }
+        return categories
+            .filter((item) => {
+                const haystack = normalize([item.name, item.path, item.slug].join(" "));
+                return terms.every((term) => haystack.includes(term));
+            })
+            .slice(0, maxResults);
+    }
+
+    function renderResults(results) {
+        resultsList.innerHTML = "";
+        activeIndex = -1;
+
+        if (!searchInput.value.trim()) {
+            resultsList.classList.add("d-none");
+            hint.textContent = "Escribe al menos 2 caracteres para buscar entre las categorías disponibles.";
+            return;
+        }
+
+        if (searchInput.value.trim().length < 2) {
+            resultsList.classList.add("d-none");
+            hint.textContent = "Escribe al menos 2 caracteres...";
+            return;
+        }
+
+        if (results.length === 0) {
+            resultsList.classList.add("d-none");
+            hint.textContent = "Sin resultados. Prueba con otra palabra o parte de la ruta.";
+            return;
+        }
+
+        hint.textContent = results.length === maxResults
+            ? `Mostrando los primeros ${maxResults} resultados. Afiná la búsqueda si hace falta.`
+            : `${results.length} categoría${results.length === 1 ? "" : "s"} encontrada${results.length === 1 ? "" : "s"}.`;
+
+        results.forEach((item, index) => {
+            const li = document.createElement("li");
+            li.className = "list-group-item category-result-item";
+            li.dataset.index = String(index);
+            li.innerHTML = `
+                <div class="fw-semibold">${item.name}</div>
+                <div class="small text-muted">${item.path || item.slug}</div>
+            `;
+            li.addEventListener("mousedown", (event) => {
+                event.preventDefault();
+                selectCategory(item);
+            });
+            resultsList.appendChild(li);
+        });
+        resultsList.classList.remove("d-none");
+    }
+
+    function updateActiveItem() {
+        const items = resultsList.querySelectorAll(".category-result-item");
+        items.forEach((item, index) => {
+            item.classList.toggle("active", index === activeIndex);
+        });
+        if (activeIndex >= 0 && items[activeIndex]) {
+            items[activeIndex].scrollIntoView({ block: "nearest" });
+        }
+    }
+
+    searchInput.addEventListener("input", () => {
+        renderResults(filterCategories(searchInput.value));
+    });
+
+    searchInput.addEventListener("keydown", (event) => {
+        const items = resultsList.querySelectorAll(".category-result-item");
+        if (!items.length) {
+            return;
+        }
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            activeIndex = Math.min(activeIndex + 1, items.length - 1);
+            updateActiveItem();
+        } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            activeIndex = Math.max(activeIndex - 1, 0);
+            updateActiveItem();
+        } else if (event.key === "Enter" && activeIndex >= 0) {
+            event.preventDefault();
+            const results = filterCategories(searchInput.value);
+            if (results[activeIndex]) {
+                selectCategory(results[activeIndex]);
+            }
+        } else if (event.key === "Escape") {
+            resultsList.classList.add("d-none");
+            activeIndex = -1;
+        }
+    });
+
+    clearButton.addEventListener("click", clearSelection);
+
+    document.getElementById("monitor-form").addEventListener("submit", (event) => {
+        if (!hiddenInput.value) {
+            event.preventDefault();
+            hint.textContent = "Debes seleccionar una categoría antes de guardar.";
+            hint.classList.remove("d-none");
+            searchInput.focus();
+        }
+    });
+
+    if (hiddenInput.value) {
+        const selected = findCategory(hiddenInput.value);
+        if (selected) {
+            selectCategory(selected);
+        }
+    }
+})();
+</script>
+{% endblock %}
